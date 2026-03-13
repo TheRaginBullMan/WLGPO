@@ -1,0 +1,7 @@
+﻿namespace WLGPO.GPO;
+
+public enum GPO_OPTIONS : uint
+{
+    GPO_OPTION_DISABLE_USER = 0x00000001,
+    GPO_OPTION_DISABLE_MACHINE = 0x00000002
+}

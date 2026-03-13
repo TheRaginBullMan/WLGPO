@@ -1,0 +1,7 @@
+﻿namespace WLGPO.GPO;
+
+public enum GPO_OPEN_FLAGS : uint
+{
+    GPO_OPEN_LOAD_REGISTRY = 0x00000001,
+    GPO_OPEN_READ_ONLY = 0x00000002
+}
