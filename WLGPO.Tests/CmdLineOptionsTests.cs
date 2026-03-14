@@ -470,4 +470,135 @@ public class CmdLineOptionsTests
         Assert.True(opts.HasError);
         Assert.Contains("ValueName is required", opts.Error);
     }
+
+    // ── /sid switch (T3) ───────────────────────────────────────────
+
+    [Fact]
+    public void Switch_Sid_FriendlyName_SetsSid()
+    {
+        var opts = new CmdLineOptions(new[] { "GET", @"HKCU\Software\Test!Val", "/sid", "Administrators" });
+        Assert.False(opts.HasError, opts.Error);
+        Assert.Equal("S-1-5-32-544", opts.Sid.Value);
+    }
+
+    [Fact]
+    public void Switch_Sid_RawSidString_SetsSid()
+    {
+        var opts = new CmdLineOptions(new[] { "GET", @"HKCU\Software\Test!Val", "/sid", "S-1-5-32-544" });
+        Assert.False(opts.HasError, opts.Error);
+        Assert.Equal("S-1-5-32-544", opts.Sid.Value);
+    }
+
+    [Theory]
+    [InlineData("Users",                 "S-1-5-32-545")]
+    [InlineData("Guests",                "S-1-5-32-546")]
+    [InlineData("System",                "S-1-5-18")]
+    [InlineData("Everyone",              "S-1-1-0")]
+    public void Switch_Sid_AllSupportedNames_SetCorrectSid(string name, string expectedSid)
+    {
+        var opts = new CmdLineOptions(new[] { "GET", @"HKCU\Software\Test!Val", "/sid", name });
+        Assert.False(opts.HasError, opts.Error);
+        Assert.Equal(expectedSid, opts.Sid.Value);
+    }
+
+    [Fact]
+    public void Switch_Sid_InvalidValue_SetsError()
+    {
+        var opts = new CmdLineOptions(new[] { "GET", @"HKCU\Software\Test!Val", "/sid", "NotAValidSid" });
+        Assert.True(opts.HasError);
+        Assert.Contains("invalid SID value", opts.Error);
+    }
+
+    [Fact]
+    public void Switch_Sid_MissingValue_SetsError()
+    {
+        var opts = new CmdLineOptions(new[] { "GET", @"HKCU\Software\Test!Val", "/sid" });
+        Assert.True(opts.HasError);
+        Assert.Contains("/sid requires a value", opts.Error);
+    }
+
+    [Fact]
+    public void Switch_Sid_NotProvided_DefaultsToEmpty()
+    {
+        var opts = new CmdLineOptions(new[] { "GET", @"HKCU\Software\Test!Val" });
+        Assert.False(opts.HasError, opts.Error);
+        Assert.True(string.IsNullOrWhiteSpace(opts.Sid.Value));
+    }
+
+    // ── Large DWORD / QWORD / hex binary (T4) ─────────────────────
+
+    [Theory]
+    [InlineData("2147483648",  unchecked((int)0x80000000))]  // Int32.MinValue bits
+    [InlineData("4294967295",  unchecked((int)0xFFFFFFFF))]  // -1 bits
+    [InlineData("0",           0)]
+    [InlineData("2147483647",  2147483647)]                  // Int32.MaxValue
+    public void DataConversion_DWord_LargeUnsignedValues(string input, int expectedBits)
+    {
+        var opts = new CmdLineOptions(new[] { "SET", @"HKLM\Software\Test!Val", "/d", input, "/t", "REG_DWORD" });
+        Assert.False(opts.HasError, opts.Error);
+        Assert.IsType<int>(opts.ConvertedData);
+        Assert.Equal(expectedBits, opts.ConvertedData);
+    }
+
+    [Fact]
+    public void DataConversion_DWord_OutOfRange_SetsError()
+    {
+        var opts = new CmdLineOptions(new[] { "SET", @"HKLM\Software\Test!Val", "/d", "4294967296", "/t", "REG_DWORD" });
+        Assert.True(opts.HasError);
+        Assert.Contains("not a valid DWord", opts.Error);
+    }
+
+    [Theory]
+    [InlineData("9223372036854775808",   unchecked((long)0x8000000000000000L))]  // Int64.MinValue bits
+    [InlineData("18446744073709551615",  unchecked((long)0xFFFFFFFFFFFFFFFFL))]  // -1 bits
+    [InlineData("0",                     0L)]
+    [InlineData("9223372036854775807",   9223372036854775807L)]                  // Int64.MaxValue
+    public void DataConversion_QWord_LargeUnsignedValues(string input, long expectedBits)
+    {
+        var opts = new CmdLineOptions(new[] { "SET", @"HKLM\Software\Test!Val", "/d", input, "/t", "REG_QWORD" });
+        Assert.False(opts.HasError, opts.Error);
+        Assert.IsType<long>(opts.ConvertedData);
+        Assert.Equal(expectedBits, opts.ConvertedData);
+    }
+
+    [Fact]
+    public void DataConversion_QWord_OutOfRange_SetsError()
+    {
+        var opts = new CmdLineOptions(new[] { "SET", @"HKLM\Software\Test!Val", "/d", "18446744073709551616", "/t", "REG_QWORD" });
+        Assert.True(opts.HasError);
+        Assert.Contains("not a valid QWord", opts.Error);
+    }
+
+    [Fact]
+    public void DataConversion_Binary_HexValues_Parsed()
+    {
+        var opts = new CmdLineOptions(new[] { "SET", @"HKLM\Software\Test!Val", "/d", "0xFF,0x0A,0x01", "/t", "REG_BINARY" });
+        Assert.False(opts.HasError, opts.Error);
+        Assert.IsType<byte[]>(opts.ConvertedData);
+        Assert.Equal(new byte[] { 255, 10, 1 }, (byte[])opts.ConvertedData);
+    }
+
+    [Fact]
+    public void DataConversion_Binary_MixedDecimalAndHex_Parsed()
+    {
+        var opts = new CmdLineOptions(new[] { "SET", @"HKLM\Software\Test!Val", "/d", "1,0xFF,255", "/t", "REG_BINARY" });
+        Assert.False(opts.HasError, opts.Error);
+        Assert.Equal(new byte[] { 1, 255, 255 }, (byte[])opts.ConvertedData);
+    }
+
+    [Fact]
+    public void DataConversion_Binary_HexCaseInsensitive_Parsed()
+    {
+        var opts = new CmdLineOptions(new[] { "SET", @"HKLM\Software\Test!Val", "/d", "0XFF,0xff,0Xab", "/t", "REG_BINARY" });
+        Assert.False(opts.HasError, opts.Error);
+        Assert.Equal(new byte[] { 255, 255, 171 }, (byte[])opts.ConvertedData);
+    }
+
+    [Fact]
+    public void DataConversion_Binary_InvalidHex_SetsError()
+    {
+        var opts = new CmdLineOptions(new[] { "SET", @"HKLM\Software\Test!Val", "/d", "0xFF,0xGG", "/t", "REG_BINARY" });
+        Assert.True(opts.HasError);
+        Assert.Contains("not a valid Binary", opts.Error);
+    }
 }
