@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Linq;
 using Microsoft.Win32;
+using WLGPO.GPO;
 
 namespace WLGPO;
 
@@ -8,22 +9,32 @@ public class CmdLineOptions
 {
     const string _help = """
 
-                         Usage:
+                         Usage: (Set,Get,Delete,Path)
+                         
                            WLGPO Set <RegistryKey> [/v ValueName] [/d Data] [/t DataType]
                            WLGPO Set <RegistryKey>!<ValueName> [/d Data] [/t DataType]
                            
                            WLGPO Get <RegistryKey> [/v ValueName]
                            WLGPO Get <RegistryKey>!<ValueName>
 
+                           WLGPO Delete <RegistryKey> [/v ValueName]
+                           WLGPO Delete <RegistryKey>!<ValueName>
+                         
                            WLGPO Path <RegistryKey>
                          
                          Options:
                            /v    Value name
                            /d    Data to set
                            /t    Registry data type
+                           /sid  LocalPrincipalSid name
                            /p    Pause before exit
                            --help Display this help message
 
+                         LocalPrincipalSid:
+                           Administrators, Users, Guests, PowerUsers, BackupOperators, RemoteDesktopUsers,
+                           NetworkConfigOps, HyperVAdministrators, RemoteManagementUsers, System,
+                           LocalService, NetworkService, Iusr, Everyone
+                           
                          Data Types:
                            REG_SZ, REG_MULTI_SZ, REG_EXPAND_SZ, REG_DWORD,
                            REG_QWORD, REG_BINARY, REG_NONE
@@ -39,18 +50,16 @@ public class CmdLineOptions
                            3  Value Already Set
                          """;
     
-    public ActionTask Action { get; } =  ActionTask.Get;
+    public ActionTask Action { get; } =  ActionTask.Unknown;
     public string RegistryKey { get; } = string.Empty;
     public string ValueName { get; } = string.Empty;
     public string Data { get; } = string.Empty;
+    public LocalPrincipalSid Sid { get; }
     public object? ConvertedData { get; } = null;
     public RegistryValueKind DataType { get; } = RegistryValueKind.Unknown;
     public bool Pause { get; } = false;
-    
     public string Error { get; } = string.Empty;
-
     public bool HasError => !string.IsNullOrWhiteSpace(Error);
-    
     public string Help => _help;
     
     public CmdLineOptions(string[] args)
@@ -122,6 +131,13 @@ public class CmdLineOptions
                     case "/p":
                         Pause = true;
                         break;
+                    case "/sid":
+                        if (i + 1 >= args.Length)
+                            throw new ArgumentException("/sid requires a value");
+                        if (!LocalPrincipalSid.TryParse(args[++i],out var sid))
+                            throw new ArgumentException("invalid SID value");
+                        Sid = sid;
+                        break;
                     default:
                         throw new ArgumentException($"Unknown switch: {args[i]}");
                 }
@@ -139,19 +155,25 @@ public class CmdLineOptions
             switch (DataType)
             {
                 case RegistryValueKind.DWord:
-                    if (!Int32.TryParse(Data, out var dWord))
+                    if (!UInt32.TryParse(Data, out var dWord))
                         throw new ArgumentException($"{Data} not a valid DWord");
-                    ConvertedData = dWord;
+                    ConvertedData = (int)dWord;
                     break;
                 case RegistryValueKind.QWord:
-                    if (!Int64.TryParse(Data, out var qWord))
+                    if (!UInt64.TryParse(Data, out var qWord))
                         throw new ArgumentException($"{Data} not a valid QWord");
-                    ConvertedData = qWord;
+                    ConvertedData = (long)qWord;
                     break;
                 case RegistryValueKind.Binary:
                     try
                     {
-                        ConvertedData = Data.Split(',').Select(s => Convert.ToByte(s)).ToArray();
+                        ConvertedData = Data.Split(',').Select(s =>
+                        {
+                            var token = s.Trim();                                                                                                                                                                                                                                                                                                                                                                               
+                            return token.StartsWith("0x", StringComparison.OrdinalIgnoreCase)                                                                                                                                                                                                                                                                                                                                   
+                                ? Convert.ToByte(token.Substring(2), 16)                                                                                                                                                                                                                                                                                                                                                        
+                                : Convert.ToByte(token);       
+                        }).ToArray();
                     }
                     catch (Exception)
                     {
@@ -167,6 +189,8 @@ public class CmdLineOptions
                 case RegistryValueKind.MultiString:
                     ConvertedData = Data.Split(["\\0"], StringSplitOptions.None);
                     break;
+                default:
+                    throw new ArgumentException($"Unknown data type: {DataType}");
             }
             
         }
@@ -196,13 +220,9 @@ public class CmdLineOptions
         if (Action == ActionTask.Path)
             return $"Action:{Action} RegistryKey:{RegistryKey}";
             
-        if (Action == ActionTask.Get)
-            return $"Action:{Action} RegistryKey:{RegistryKey} ValueName:{ValueName}";
-        
-        if (Action == ActionTask.Delete)
+        if (Action == ActionTask.Get || Action == ActionTask.Delete)
             return $"Action:{Action} RegistryKey:{RegistryKey} ValueName:{ValueName}";
         
         return $"Action:{Action} RegistryKey:{RegistryKey} ValueName:{ValueName} Data:{Data} DataType:{DataType}";
-        
     }
 } 

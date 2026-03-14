@@ -1,12 +1,11 @@
-﻿using System;
+using System;
 using System.Runtime.InteropServices;
 using System.Text;
 
 namespace WLGPO.GPO;
 
-
-[ComImport, Guid("EA502723-A23D-11d1-A7D3-0000F87571E3"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-public interface IGroupPolicyObject
+[ComImport, Guid("7E37D5E7-263D-45CF-842B-96A95C63E46C"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+public interface IGroupPolicyObject2
 {
     [PreserveSig]
     HRESULT New(
@@ -96,4 +95,15 @@ public interface IGroupPolicyObject
     HRESULT GetPropertySheetPages(
         out IntPtr hPages,
         out uint uPageCount);
+    
+    [PreserveSig]
+    HRESULT OpenLocalMachineGPOForPrincipal(
+        [MarshalAs(UnmanagedType.LPWStr)] string pszLocalUserOrGroupSID,
+        uint dwFlags);
+    
+    [PreserveSig]
+    HRESULT GetRegistryKeyPath(
+        uint dwSection,
+        [MarshalAs(UnmanagedType.LPWStr)] StringBuilder pszRegistryKeyPath,
+        int cchMaxLength);
 }
