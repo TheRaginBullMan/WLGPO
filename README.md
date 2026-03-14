@@ -38,6 +38,7 @@ WLGPO <Action> <RegistryKey> [options]
 | `/v <name>` | Registry value name |
 | `/d <data>` | Data to write (used with `Set`) |
 | `/t <type>` | Registry data type (default: `REG_SZ`) |
+| `/sid <principal>` | Target a per-user local GPO for the specified principal (name or raw SID) |
 | `/p` | Pause before exit |
 | `--help`, `-h`, `/?` | Display help |
 
@@ -54,6 +55,31 @@ is equivalent to:
 ```
 HKLM\Software\Policies\MyApp /v ValueName
 ```
+
+### Per-Principal GPO (`/sid`)
+
+The `/sid` switch targets the **per-user local GPO** for a specific Windows principal instead of the machine-level GPO. It is only valid with `HKCU` registry keys.
+
+Accepted values are either a friendly name or a raw SID string:
+
+| Friendly Name | SID |
+|---------------|-----|
+| `Administrators` | `S-1-5-32-544` |
+| `Users` | `S-1-5-32-545` |
+| `Guests` | `S-1-5-32-546` |
+| `PowerUsers` | `S-1-5-32-547` |
+| `BackupOperators` | `S-1-5-32-551` |
+| `RemoteDesktopUsers` | `S-1-5-32-555` |
+| `NetworkConfigOps` | `S-1-5-32-556` |
+| `HyperVAdministrators` | `S-1-5-32-578` |
+| `RemoteManagementUsers` | `S-1-5-32-580` |
+| `System` | `S-1-5-18` |
+| `LocalService` | `S-1-5-19` |
+| `NetworkService` | `S-1-5-20` |
+| `Iusr` | `S-1-5-17` |
+| `Everyone` | `S-1-1-0` |
+
+A raw SID string (e.g. `S-1-5-32-544`) is also accepted.
 
 ---
 
@@ -83,6 +109,15 @@ WLGPO Delete HKLM\Software\Policies\MyApp /v MaxRetries
 
 # Print the resolved path
 WLGPO Path HKCU\Software\Policies\MyApp
+
+# Set a value in the per-user GPO for the Administrators group
+WLGPO Set HKCU\Software\Policies\MyApp /v Setting /d "1" /sid Administrators
+
+# Set a value using a raw SID
+WLGPO Set HKCU\Software\Policies\MyApp!Setting /d "1" /sid S-1-5-32-544
+
+# Get a value from the per-user GPO for the Users group
+WLGPO Get HKCU\Software\Policies\MyApp!Setting /sid Users
 ```
 
 ---
@@ -139,7 +174,7 @@ This runs `dotnet publish WLGPO.sln -c Release -o .\publish` and places the exec
 dotnet test WLGPO.sln
 ```
 
-The test suite contains 65+ xUnit tests covering CLI parsing, data type conversion, bang notation, validation, and edge cases.
+The test suite contains 75+ xUnit tests covering CLI parsing, data type conversion, bang notation, validation, `LocalPrincipalSid` parsing, and edge cases.
 
 ---
 
@@ -152,16 +187,20 @@ WLGPO/
 │   ├── CmdLineOptions.cs         # Command-line argument parser
 │   ├── ActionTask.cs             # Enum: Get, Set, Delete, Path
 │   └── GPO/                      # Windows GPO COM abstraction layer
-│       ├── IGroupPolicyObject.cs # COM interface (P/Invoke)
-│       ├── GroupPolicyObject.cs  # COM wrapper with lifecycle management
-│       ├── WindowsGroupPolicyObject.cs  # Core implementation (STA thread, registry)
-│       ├── GPO_SECTIONS.cs       # Enum: User / Machine sections
-│       ├── GPO_OPEN_FLAGS.cs     # Enum: GPO open flags
-│       ├── GPO_OPTIONS.cs        # Enum: GPO disable options
-│       ├── HRESULT.cs            # COM HRESULT error codes
-│       └── GROUP_POLICY_OBJECT_TYPE.cs  # Enum: GPO types
+│       ├── IGroupPolicyObject.cs          # Base COM interface (P/Invoke)
+│       ├── IGroupPolicyObject2.cs         # Extended COM interface (adds OpenLocalMachineGPOForPrincipal)
+│       ├── GroupPolicyObject.cs           # COM coclass registration
+│       ├── GroupPolicyObjectManaged.cs    # IDisposable wrapper over IGroupPolicyObject2
+│       ├── WindowsGroupPolicyObject.cs    # Core implementation (STA thread, registry, per-principal)
+│       ├── LocalPrincipalSid.cs           # Well-known SID value type with friendly-name lookup
+│       ├── GPO_SECTIONS.cs                # Enum: User / Machine sections
+│       ├── GPO_OPEN_FLAGS.cs              # Enum: GPO open flags
+│       ├── GPO_OPTIONS.cs                 # Enum: GPO disable options
+│       ├── HRESULT.cs                     # COM HRESULT error codes
+│       └── GROUP_POLICY_OBJECT_TYPE.cs    # Enum: GPO types
 ├── WLGPO.Tests/                  # xUnit test project
-│   └── CmdLineOptionsTests.cs    # CLI parsing tests
+│   ├── CmdLineOptionsTests.cs    # CLI parsing tests
+│   └── LocalPrincipalSidTests.cs # LocalPrincipalSid.TryParse tests
 ├── WLGPO.sln                     # Visual Studio solution
 └── publish.cmd                   # Release publish script
 ```
