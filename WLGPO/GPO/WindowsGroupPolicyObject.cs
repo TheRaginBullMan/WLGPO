@@ -195,7 +195,8 @@ public class WindowsGroupPolicyObject
             /*
                 HKLM\Software\Policies\... → machine policy → bMachine: true
                 HKCU\Software\Policies\... → user policy → bMachine: false
-                bAdd → true for 'not configured' set option
+                bAdd → false for 'not configured' set option (remove data)
+                bAdd → true to set gpo (add/update data)
             */
             var machineLevel = (_section == GPO_SECTIONS.GPO_SECTION_MACHINE);
             var hResult = gpo.Instance.Save(machineLevel,add,_registryExtensionGuid,_localGuid);
