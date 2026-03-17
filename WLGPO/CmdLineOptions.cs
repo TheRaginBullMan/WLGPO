@@ -27,7 +27,7 @@ public class CmdLineOptions
                            /d    Data to set
                            /t    Registry data type
                            /sid  LocalPrincipalSid name
-                           /p    Pause before exit
+                           /diag diagnostics console logging
                            --help Display this help message
 
                          LocalPrincipalSid:
@@ -57,9 +57,9 @@ public class CmdLineOptions
     public LocalPrincipalSid Sid { get; }
     public object? ConvertedData { get; } = null;
     public RegistryValueKind DataType { get; } = RegistryValueKind.Unknown;
-    public bool Pause { get; } = false;
     public string Error { get; } = string.Empty;
     public bool HasError => !string.IsNullOrWhiteSpace(Error);
+    public bool Verbose { get; } = false;
     public string Help => _help;
     
     public CmdLineOptions(string[] args)
@@ -128,15 +128,15 @@ public class CmdLineOptions
                             throw new ArgumentException("/t requires a value");
                         DataType = ParseDataType(args[++i]);
                         break;
-                    case "/p":
-                        Pause = true;
-                        break;
                     case "/sid":
                         if (i + 1 >= args.Length)
                             throw new ArgumentException("/sid requires a value");
                         if (!LocalPrincipalSid.TryParse(args[++i],out var sid))
                             throw new ArgumentException("invalid SID value");
                         Sid = sid;
+                        break;
+                    case "/diag":
+                        Verbose = true;
                         break;
                     default:
                         throw new ArgumentException($"Unknown switch: {args[i]}");
