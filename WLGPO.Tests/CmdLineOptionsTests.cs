@@ -146,14 +146,6 @@ public class CmdLineOptionsTests
     }
 
     [Fact]
-    public void Switch_P_SetsPause()
-    {
-        var opts = new CmdLineOptions(new[] { "GET", @"HKLM\Software\Test!Val", "/p" });
-        Assert.False(opts.HasError, opts.Error);
-        Assert.True(opts.Pause);
-    }
-
-    [Fact]
     public void Switch_V_MissingValue_SetsError()
     {
         var opts = new CmdLineOptions(new[] { "GET", @"HKLM\Software\Test", "/v" });
@@ -189,12 +181,12 @@ public class CmdLineOptionsTests
     [InlineData("/V")]
     [InlineData("/D")]
     [InlineData("/T")]
-    [InlineData("/P")]
+    [InlineData("/DIAG")]
     public void Switches_CaseInsensitive(string sw)
     {
         // All should be recognized without error
         string[] args;
-        if (sw.Equals("/P", StringComparison.OrdinalIgnoreCase))
+        if (sw.Equals("/DIAG", StringComparison.OrdinalIgnoreCase))
             args = new[] { "GET", @"HKLM\Software\Test!Val", sw };
         else if (sw.Equals("/V", StringComparison.OrdinalIgnoreCase))
             args = new[] { "GET", @"HKLM\Software\Test", sw, "Val" };
@@ -408,19 +400,11 @@ public class CmdLineOptionsTests
     [Fact]
     public void MultipleSwitches_Combined()
     {
-        var opts = new CmdLineOptions(new[] { "SET", @"HKLM\Software\Test", "/v", "Val", "/d", "hello", "/t", "REG_SZ", "/p" });
+        var opts = new CmdLineOptions(new[] { "SET", @"HKLM\Software\Test", "/v", "Val", "/d", "hello", "/t", "REG_SZ" });
         Assert.False(opts.HasError, opts.Error);
         Assert.Equal("Val", opts.ValueName);
         Assert.Equal("hello", opts.Data);
         Assert.Equal(RegistryValueKind.String, opts.DataType);
-        Assert.True(opts.Pause);
-    }
-
-    [Fact]
-    public void DefaultPause_IsFalse()
-    {
-        var opts = new CmdLineOptions(new[] { "GET", @"HKLM\Software\Test!Val" });
-        Assert.False(opts.Pause);
     }
 
     [Fact]
@@ -469,6 +453,42 @@ public class CmdLineOptionsTests
         var opts = new CmdLineOptions(new[] { "GET", @"HKLM\Test!" });
         Assert.True(opts.HasError);
         Assert.Contains("ValueName is required", opts.Error);
+    }
+
+    // ── /diag switch ───────────────────────────────────────────────
+
+    [Fact]
+    public void Switch_Diag_SetsVerbose()
+    {
+        var opts = new CmdLineOptions(new[] { "GET", @"HKLM\Software\Test!Val", "/diag" });
+        Assert.False(opts.HasError, opts.Error);
+        Assert.True(opts.Verbose);
+    }
+
+    [Fact]
+    public void Switch_Diag_NotProvided_DefaultsFalse()
+    {
+        var opts = new CmdLineOptions(new[] { "GET", @"HKLM\Software\Test!Val" });
+        Assert.False(opts.HasError, opts.Error);
+        Assert.False(opts.Verbose);
+    }
+
+    [Fact]
+    public void Switch_Diag_CombinedWithOtherSwitches()
+    {
+        var opts = new CmdLineOptions(new[] { "SET", @"HKLM\Software\Test!Val", "/d", "hello", "/diag" });
+        Assert.False(opts.HasError, opts.Error);
+        Assert.True(opts.Verbose);
+        Assert.Equal("hello", opts.Data);
+    }
+
+    [Fact]
+    public void Switch_Diag_AppearsBefore_OtherSwitches()
+    {
+        var opts = new CmdLineOptions(new[] { "GET", @"HKLM\Software\Test", "/diag", "/v", "Val" });
+        Assert.False(opts.HasError, opts.Error);
+        Assert.True(opts.Verbose);
+        Assert.Equal("Val", opts.ValueName);
     }
 
     // ── /sid switch (T3) ───────────────────────────────────────────
