@@ -156,7 +156,10 @@ public class WindowsGroupPolicyObject
                 using var root = RegistryKey.FromHandle(handle);
                 using var key = root.OpenSubKey(_subKey);
                 
-                return key?.GetValue(field);
+                if (key == null)
+                    throw new Exception($"'{_subKey}' does not exist");
+                
+                return key.GetValue(field);
             });
             return true;
         }
@@ -183,15 +186,26 @@ public class WindowsGroupPolicyObject
             
             using var handle = new SafeRegistryHandle(pointer, true);
             using var root = RegistryKey.FromHandle(handle);
-            using var key = root.CreateSubKey(_subKey);
-                
+            
             var add = !setNotConfigured;
-
-            if (data == null || !add) //delete the key if the value is null or 'setNotConfigured' is true
-                key?.DeleteValue(valueName,false);
+            var delete = (data == null || !add); //delete the key if the value is null or 'setNotConfigured' is true
+            
+            if (delete)
+            {
+                using var key = root.OpenSubKey(_subKey,writable:true); //should already exist
+                if (key == null)
+                    return; // sub key does not exist so just return
+                key.DeleteValue(valueName,false);
+            }
             else
-                key?.SetValue(valueName, data, dataType);
-                    
+            {
+                if (data == null)
+                    throw new ArgumentNullException(nameof(data)); //should be unreachable
+                
+                using var key = root.CreateSubKey(_subKey,writable:true); //open or create so the value can be added
+                key.SetValue(valueName, data, dataType);
+            }
+            
             /*
                 HKLM\Software\Policies\... → machine policy → bMachine: true
                 HKCU\Software\Policies\... → user policy → bMachine: false
