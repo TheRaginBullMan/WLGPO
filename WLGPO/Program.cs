@@ -44,18 +44,18 @@ class Program
                     StandardOutWriteLine($"{dataGet}");
                     break;
                 case ActionTask.Set:
-                    if (!gpo.TryGet(options.ValueName, out var dataSet, out gpoError))
-                        throw new Exception(gpoError?.Message ?? "unknown error");
+                    if (gpo.TryGet(options.ValueName, out var dataSet, out _))
+                    {
+                        Func<object, object?, bool> areEqual = (a, b) =>                                                                                                                                                                                                                                                                                                                              
+                            a is byte[] bytesA && b is byte[] bytesB ? bytesA.SequenceEqual(bytesB) : a.Equals(b); 
                     
-                    Func<object, object?, bool> areEqual = (a, b) =>                                                                                                                                                                                                                                                                                                                              
-                        a is byte[] bytesA && b is byte[] bytesB ? bytesA.SequenceEqual(bytesB) : a.Equals(b); 
-                    
-                    if (dataSet != null && areEqual(dataSet,options.ConvertedData))
-                    {   
-                        StandardOutWriteLine("group policy already set to value");
-                        return ReturnCodes.AlreadySet;
+                        if (dataSet != null && areEqual(dataSet,options.ConvertedData))
+                        {   
+                            StandardOutWriteLine("group policy already set to value");
+                            return ReturnCodes.AlreadySet;
+                        }
                     }
-
+                    
                     if (!gpo.TrySet(options.ValueName, options.ConvertedData, options.DataType, out gpoError))
                     {
                         StandardErrorWriteLine($"group policy set failed.  reason:{gpoError?.Message ?? "unknown error"}");
