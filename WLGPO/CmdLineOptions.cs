@@ -149,7 +149,7 @@ public class CmdLineOptions
             if (Action == ActionTask.Get || Action == ActionTask.Delete)
                 return;
         
-            if (Action == ActionTask.Set && string.IsNullOrWhiteSpace(Data))
+            if (Action == ActionTask.Set && (string.IsNullOrWhiteSpace(Data) && DataType != RegistryValueKind.String))
                 throw new ArgumentException("Data (/d) is required for Set.");
 
             switch (DataType)
