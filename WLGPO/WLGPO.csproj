@@ -15,8 +15,8 @@
         <IsPublishable>true</IsPublishable>
         <IsPackable>false</IsPackable>
         
-        <AssemblyVersion>1.1.2.0</AssemblyVersion>
-        <FileVersion>1.1.2.0</FileVersion>
+        <AssemblyVersion>1.1.3.0</AssemblyVersion>
+        <FileVersion>1.1.3.0</FileVersion>
 
         <AssemblyName>WLGPO</AssemblyName>
         <RootNamespace>WLGPO</RootNamespace>
